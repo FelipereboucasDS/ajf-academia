@@ -1,13 +1,156 @@
-/* Layout Component - A component that wraps the main content of the app
-   - Use this file to add a header, footer, or other elements that should be present on every page
-   - This component is used in the App.tsx file to wrap the main content of the app */
-
-import { Outlet } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router-dom'
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+import {
+  Shield,
+  Home,
+  Calendar as CalendarIcon,
+  List,
+  DollarSign,
+  User,
+  Users,
+  MapPin,
+  Settings,
+  Bell,
+  LogOut,
+} from 'lucide-react'
+import useMainStore from '@/stores/useMainStore'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { RoleSwitcher } from './RoleSwitcher'
 
 export default function Layout() {
+  const { currentUser } = useMainStore()
+  const location = useLocation()
+
+  const navItems = {
+    student: [
+      { title: 'Início', url: '/', icon: Home },
+      { title: 'Agendar', url: '/agendar', icon: CalendarIcon },
+      { title: 'Meus Treinos', url: '/meus-treinos', icon: List },
+      { title: 'Financeiro', url: '/financeiro', icon: DollarSign },
+    ],
+    teacher: [
+      { title: 'Início', url: '/', icon: Home },
+      { title: 'Presença', url: '/presenca', icon: CalendarIcon },
+    ],
+    admin: [
+      { title: 'Início', url: '/', icon: Home },
+      { title: 'Alunos', url: '/alunos', icon: Users },
+      { title: 'Unidades', url: '/unidades', icon: MapPin },
+      { title: 'Financeiro', url: '/financeiro', icon: DollarSign },
+      { title: 'Configurações', url: '/configuracoes', icon: Settings },
+    ],
+  }
+
+  const items = navItems[currentUser.role]
+
   return (
-    <main className="flex flex-col min-h-screen">
-      <Outlet />
-    </main>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background text-foreground">
+        <Sidebar variant="sidebar" className="border-r border-border bg-card">
+          <SidebarHeader className="p-4 flex items-center justify-center border-b border-border">
+            <Link to="/" className="flex flex-col items-center gap-2 group">
+              <div className="p-2 bg-primary rounded-xl group-hover:scale-105 transition-transform duration-300">
+                <Shield className="w-8 h-8 text-primary-foreground" />
+              </div>
+              <span className="font-display font-black tracking-widest text-xl">AJF</span>
+            </Link>
+          </SidebarHeader>
+          <SidebarContent className="p-4">
+            <SidebarMenu>
+              {items.map((item) => {
+                const isActive = location.pathname === item.url
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                      className="hover:bg-accent hover:text-accent-foreground transition-colors py-6"
+                    >
+                      <Link to={item.url} className="flex items-center gap-3">
+                        <item.icon
+                          className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+                        />
+                        <span
+                          className={`font-semibold ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
+                        >
+                          {item.title}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarContent>
+        </Sidebar>
+
+        <main className="flex-1 flex flex-col min-w-0">
+          <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-md sticky top-0 z-40">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
+              <h1 className="text-xl font-bold hidden sm:block uppercase tracking-wide text-foreground/90">
+                {items.find((i) => i.url === location.pathname)?.title || 'AJF Goleiros'}
+              </h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-muted-foreground hover:text-foreground"
+              >
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                      <AvatarFallback className="bg-accent text-accent-foreground font-bold">
+                        {currentUser.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuItem asChild>
+                    <Link to="/perfil" className="cursor-pointer flex items-center w-full">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Meu Perfil</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+
+          <div className="p-6 flex-1 overflow-auto animate-fade-in-up">
+            <Outlet />
+          </div>
+        </main>
+        <RoleSwitcher />
+      </div>
+    </SidebarProvider>
   )
 }
