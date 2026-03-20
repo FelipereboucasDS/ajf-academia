@@ -1,4 +1,5 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   SidebarProvider,
   Sidebar,
@@ -32,13 +33,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/hooks/use-auth'
-import { useEffect } from 'react'
 import LoginPage from '@/pages/LoginPage'
+import RegisterPage from '@/pages/RegisterPage'
 
 export default function Layout() {
   const { user, signOut, loading: authLoading } = useAuth()
   const { currentUser, initStore, loading: storeLoading, setCurrentUser } = useMainStore()
   const location = useLocation()
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (user) {
@@ -47,6 +49,16 @@ export default function Layout() {
       setCurrentUser({} as any)
     }
   }, [user, initStore, setCurrentUser])
+
+  useEffect(() => {
+    if (
+      user &&
+      currentUser.id &&
+      (location.pathname === '/cadastro' || location.pathname === '/login')
+    ) {
+      navigate('/agendar', { replace: true })
+    }
+  }, [user, currentUser.id, location.pathname, navigate])
 
   if (authLoading || (user && storeLoading)) {
     return (
@@ -64,6 +76,9 @@ export default function Layout() {
   }
 
   if (!user || !currentUser.id) {
+    if (location.pathname === '/cadastro') {
+      return <RegisterPage />
+    }
     return <LoginPage />
   }
 

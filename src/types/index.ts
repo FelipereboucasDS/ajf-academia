@@ -8,6 +8,7 @@ export interface User {
   status: 'active' | 'inactive'
   favoriteUnitId?: string
   avatar?: string
+  dateOfBirth?: string
 }
 
 export interface Unit {

@@ -47,6 +47,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           status: p.status,
           favoriteUnitId: p.favorite_unit_id || undefined,
           avatar: p.avatar || undefined,
+          dateOfBirth: p.date_of_birth || undefined,
         }))
         setUsers(mappedUsers)
         setCurrentUser(mappedUsers.find((u) => u.id === userId) || ({} as User))

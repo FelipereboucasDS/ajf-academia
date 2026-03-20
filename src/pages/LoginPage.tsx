@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, Loader2 } from 'lucide-react'
+import { Shield, Loader2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('aluno@ajf.com')
@@ -76,9 +77,34 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full h-12 font-bold text-lg" disabled={loading}>
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Entrar'}
-            </Button>
+
+            <div className="space-y-4">
+              <Button type="submit" className="w-full h-12 font-bold text-lg" disabled={loading}>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Entrar'}
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground font-bold tracking-wider">
+                    Ou
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                asChild
+                className="w-full h-12 font-bold text-md border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors"
+              >
+                <Link to="/cadastro">
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Criar Nova Conta
+                </Link>
+              </Button>
+            </div>
 
             <div className="mt-8 p-4 bg-accent/50 rounded-lg border border-border/50 text-sm text-center text-muted-foreground flex flex-col gap-1.5">
               <p className="font-bold text-foreground uppercase tracking-wide text-xs mb-1">
