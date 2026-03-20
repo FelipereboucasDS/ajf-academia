@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Shield, Loader2, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -22,17 +22,29 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const { signUp } = useAuth()
+  const navigate = useNavigate()
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const { error } = await signUp(email, password, { name, date_of_birth: dateOfBirth })
+
+    const { error, data } = await signUp(email, password, { name, date_of_birth: dateOfBirth })
+
     if (error) {
-      toast.error('Erro ao criar conta. Verifique os dados e tente novamente.')
+      if (error.message.toLowerCase().includes('already registered')) {
+        toast.error('Este email já está cadastrado. Tente fazer login ou redefinir a senha.')
+      } else {
+        toast.error(error.message || 'Erro ao criar conta. Verifique os dados e tente novamente.')
+      }
       setLoading(false)
     } else {
-      toast.success('Conta criada com sucesso!')
-      // Redirection to /agendar is handled by the Layout effect once user object and store are populated
+      if (data?.session) {
+        toast.success('Conta criada com sucesso!')
+        navigate('/agendar')
+      } else {
+        toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
+        navigate('/')
+      }
     }
   }
 
