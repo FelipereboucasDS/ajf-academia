@@ -20,6 +20,7 @@ export interface Unit {
 }
 
 export interface UnitSchedule {
+  id?: string
   dayOfWeek: number // 0 = Sunday, 1 = Monday, etc.
   unitId: string
 }

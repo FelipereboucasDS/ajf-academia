@@ -31,11 +31,41 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { RoleSwitcher } from './RoleSwitcher'
+import { useAuth } from '@/hooks/use-auth'
+import { useEffect } from 'react'
+import LoginPage from '@/pages/LoginPage'
 
 export default function Layout() {
-  const { currentUser } = useMainStore()
+  const { user, signOut, loading: authLoading } = useAuth()
+  const { currentUser, initStore, loading: storeLoading, setCurrentUser } = useMainStore()
   const location = useLocation()
+
+  useEffect(() => {
+    if (user) {
+      initStore(user.id)
+    } else {
+      setCurrentUser({} as any)
+    }
+  }, [user, initStore, setCurrentUser])
+
+  if (authLoading || (user && storeLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
+            <Shield className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <p className="font-bold uppercase tracking-widest text-muted-foreground text-sm">
+            Carregando...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user || !currentUser.id) {
+    return <LoginPage />
+  }
 
   const navItems = {
     student: [
@@ -57,7 +87,7 @@ export default function Layout() {
     ],
   }
 
-  const items = navItems[currentUser.role]
+  const items = navItems[currentUser.role] || []
 
   return (
     <SidebarProvider>
@@ -124,7 +154,7 @@ export default function Layout() {
                     <Avatar className="h-10 w-10 border border-border">
                       <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
                       <AvatarFallback className="bg-accent text-accent-foreground font-bold">
-                        {currentUser.name.charAt(0)}
+                        {currentUser.name ? currentUser.name.charAt(0) : 'U'}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -136,7 +166,13 @@ export default function Layout() {
                       <span>Meu Perfil</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive cursor-pointer">
+                  <DropdownMenuItem
+                    className="text-destructive cursor-pointer"
+                    onClick={() => {
+                      signOut()
+                      setCurrentUser({} as any)
+                    }}
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sair</span>
                   </DropdownMenuItem>
@@ -149,7 +185,6 @@ export default function Layout() {
             <Outlet />
           </div>
         </main>
-        <RoleSwitcher />
       </div>
     </SidebarProvider>
   )
