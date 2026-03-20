@@ -30,6 +30,8 @@ export interface Booking {
   date: string
   unitId: string
   studentId: string
+  studentName?: string
+  studentEmail?: string
   status: 'booked' | 'cancelled'
   attendance: 'pending' | 'present' | 'absent'
 }
