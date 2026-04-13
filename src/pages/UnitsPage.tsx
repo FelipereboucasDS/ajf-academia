@@ -121,7 +121,19 @@ export default function UnitsPage() {
               <div className="flex items-start gap-2 text-muted-foreground">
                 <Clock className="w-5 h-5 shrink-0 text-primary" />
                 <span className="text-sm">
-                  {(unit.available_hours || []).join(', ') || 'Nenhum horário'}
+                  {(() => {
+                    let hours = unit.available_hours
+                    if (typeof hours === 'string') {
+                      try {
+                        hours = JSON.parse(hours)
+                      } catch {
+                        hours = hours.split(',').map((s: string) => s.trim())
+                      }
+                    }
+                    return Array.isArray(hours) && hours.length > 0
+                      ? hours.join(', ')
+                      : 'Nenhum horário'
+                  })()}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2">

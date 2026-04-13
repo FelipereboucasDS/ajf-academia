@@ -12,11 +12,9 @@ import { MapPin, Users, Clock } from 'lucide-react'
 import { createBooking } from '@/services/bookings'
 import { useToast } from '@/hooks/use-toast'
 
-const TIME_SLOTS = ['06:00 - 07:30', '07:30 - 09:00']
-
 const SchedulePage = () => {
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(TIME_SLOTS[0])
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('')
   const [isBooking, setIsBooking] = useState(false)
 
   const { currentUser, units, schedules, bookings } = useMainStore()
@@ -31,6 +29,30 @@ const SchedulePage = () => {
     if (!schedule) return null
     return units.find((u) => u.id === schedule.unitId) || null
   }, [date, schedules, units])
+
+  const unitTimeSlots = useMemo(() => {
+    if (!selectedUnit?.available_hours) return []
+    const hours = selectedUnit.available_hours
+    if (Array.isArray(hours)) return hours
+    if (typeof hours === 'string') {
+      try {
+        return JSON.parse(hours)
+      } catch {
+        return hours.split(',').map((s: string) => s.trim())
+      }
+    }
+    return []
+  }, [selectedUnit])
+
+  // Set first slot as default when unit/date changes
+  useMemo(() => {
+    if (
+      unitTimeSlots.length > 0 &&
+      (!selectedTimeSlot || !unitTimeSlots.includes(selectedTimeSlot))
+    ) {
+      setSelectedTimeSlot(unitTimeSlots[0])
+    }
+  }, [unitTimeSlots, selectedTimeSlot])
 
   const dateStr = date ? format(date, 'yyyy-MM-dd') : ''
   const isPast = date ? isBefore(date, today) : true
@@ -153,7 +175,12 @@ const SchedulePage = () => {
                     className="grid grid-cols-2 gap-4"
                     disabled={alreadyBooked || isPast || isBooking}
                   >
-                    {TIME_SLOTS.map((slot) => {
+                    {unitTimeSlots.length === 0 && (
+                      <p className="text-sm text-muted-foreground col-span-2">
+                        Nenhum horário cadastrado para esta unidade.
+                      </p>
+                    )}
+                    {unitTimeSlots.map((slot: string) => {
                       const count =
                         bookings.filter(
                           (b) =>

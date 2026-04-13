@@ -21,9 +21,12 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createUnit, updateUnit } from '@/services/units'
+import { supabase } from '@/lib/supabase/client'
+import { Label } from '@/components/ui/label'
 
 const DAYS = [
   { id: 0, l: 'Dom' },
@@ -40,15 +43,34 @@ const schema = z.object({
   address: z.string().min(1, 'Obrigatório'),
   capacity: z.coerce.number().min(1, 'Inválido'),
   price: z.coerce.number().min(0, 'Inválido'),
-  photo: z.string().url('URL inválida').or(z.literal('')),
+  photo: z.string().min(1, 'Foto obrigatória'),
   status: z.boolean(),
-  available_hours: z.string(),
+  available_hours: z.array(z.string()),
   days_of_week: z.array(z.number()),
 })
+
+const getAvailableHoursArray = (hours: any): string[] => {
+  if (Array.isArray(hours)) return hours
+  if (typeof hours === 'string') {
+    try {
+      const parsed = JSON.parse(hours)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      return hours
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    }
+  }
+  return []
+}
 
 export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [newStart, setNewStart] = useState('')
+  const [newEnd, setNewEnd] = useState('')
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -59,7 +81,7 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
       price: 0,
       photo: '',
       status: true,
-      available_hours: '',
+      available_hours: [],
       days_of_week: [],
     },
   })
@@ -74,7 +96,7 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
           price: unit.price,
           photo: unit.photo,
           status: unit.status === 'active',
-          available_hours: (unit.available_hours || []).join(', '),
+          available_hours: getAvailableHoursArray(unit.available_hours),
           days_of_week: unit.schedules?.map((s: any) => s.day_of_week) || [],
         })
       } else {
@@ -83,14 +105,64 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
           address: '',
           capacity: 20,
           price: 0,
-          photo: 'https://img.usecurling.com/p/600/400?q=gym&color=black',
+          photo: '',
           status: true,
-          available_hours: '',
+          available_hours: [],
           days_of_week: [],
         })
       }
+      setNewStart('')
+      setNewEnd('')
     }
   }, [isOpen, unit, form])
+
+  const timeToMins = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + m
+  }
+
+  const addSlot = () => {
+    if (!newStart || !newEnd)
+      return toast({ title: 'Preencha início e fim', variant: 'destructive' })
+    const startMins = timeToMins(newStart)
+    const endMins = timeToMins(newEnd)
+    if (startMins >= endMins)
+      return toast({ title: 'Início deve ser antes do fim', variant: 'destructive' })
+
+    const currentSlots = form.getValues('available_hours')
+    const hasOverlap = currentSlots.some((slot) => {
+      const [s, e] = slot.split(' - ')
+      if (!s || !e) return false
+      return startMins < timeToMins(e) && endMins > timeToMins(s)
+    })
+
+    if (hasOverlap)
+      return toast({ title: 'Conflito com um horário já cadastrado', variant: 'destructive' })
+
+    const newSlot = `${newStart} - ${newEnd}`
+    form.setValue('available_hours', [...currentSlots, newSlot].sort(), { shouldValidate: true })
+    setNewStart('')
+    setNewEnd('')
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
+      const { error } = await supabase.storage.from('unit-photos').upload(fileName, file)
+      if (error) throw error
+      const { data } = supabase.storage.from('unit-photos').getPublicUrl(fileName)
+      form.setValue('photo', data.publicUrl, { shouldValidate: true })
+      toast({ title: 'Foto enviada com sucesso!' })
+    } catch (err: any) {
+      toast({ title: 'Erro no upload', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const onSubmit = async (vals: z.infer<typeof schema>) => {
     setIsSubmitting(true)
@@ -102,10 +174,7 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
         price: vals.price,
         photo: vals.photo,
         status: vals.status ? 'active' : 'inactive',
-        available_hours: vals.available_hours
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        available_hours: vals.available_hours,
       }
       const { error } = unit
         ? await updateUnit(unit.id, payload, vals.days_of_week)
@@ -121,9 +190,11 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
     }
   }
 
+  const photoUrl = form.watch('photo')
+
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{unit ? 'Editar' : 'Nova'} Unidade</DialogTitle>
         </DialogHeader>
@@ -156,8 +227,6 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
                   </FormItem>
                 )}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="address"
@@ -185,28 +254,95 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
                 )}
               />
             </div>
+
             <FormField
               control={form.control}
               name="photo"
-              render={({ field }) => (
+              render={() => (
                 <FormItem>
-                  <FormLabel>Foto URL</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
+                  <FormLabel>Foto do Local</FormLabel>
+                  <div className="flex items-center gap-4">
+                    {photoUrl && (
+                      <img
+                        src={photoUrl}
+                        alt="Preview"
+                        className="w-16 h-16 object-cover rounded-md border"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        disabled={isUploading}
+                        className="cursor-pointer"
+                      />
+                    </div>
+                    {isUploading && (
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="available_hours"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Horários (separados por vírgula)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: 08:00, 10:00" {...field} />
-                  </FormControl>
+                <FormItem className="border p-3 rounded-md">
+                  <FormLabel>Horários Disponíveis (Sem sobreposição)</FormLabel>
+                  <div className="flex gap-2 items-end mb-3">
+                    <div className="flex-1">
+                      <Label className="text-xs mb-1 block">Início</Label>
+                      <Input
+                        type="time"
+                        value={newStart}
+                        onChange={(e) => setNewStart(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs mb-1 block">Fim</Label>
+                      <Input
+                        type="time"
+                        value={newEnd}
+                        onChange={(e) => setNewEnd(e.target.value)}
+                      />
+                    </div>
+                    <Button type="button" variant="secondary" onClick={addSlot}>
+                      Adicionar
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {field.value.map((slot) => (
+                      <Badge
+                        key={slot}
+                        variant="outline"
+                        className="flex items-center gap-1 bg-accent"
+                      >
+                        {slot}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            form.setValue(
+                              'available_hours',
+                              field.value.filter((s) => s !== slot),
+                              { shouldValidate: true },
+                            )
+                          }
+                          className="text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {field.value.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        Nenhum horário cadastrado.
+                      </span>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -245,11 +381,12 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="status"
               render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3 mt-4">
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Unidade Ativa</FormLabel>
                   </div>
@@ -259,9 +396,10 @@ export function UnitDialog({ unit, isOpen, onClose, onSaved }: any) {
                 </FormItem>
               )}
             />
-            <DialogFooter className="pt-2">
+
+            <DialogFooter>
               <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Salvar
+                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Salvar Unidade
               </Button>
             </DialogFooter>
           </form>
