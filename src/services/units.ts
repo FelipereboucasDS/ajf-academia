@@ -1,19 +1,38 @@
 import { supabase } from '@/lib/supabase/client'
-import { TablesInsert, TablesUpdate } from '@/lib/supabase/types'
 
-export const updateUnit = async (id: string, data: TablesUpdate<'units'>) => {
-  const { data: updated, error } = await supabase
+export const getUnitsWithSchedules = async () => {
+  return supabase.from('units').select('*, schedules(*)').order('name')
+}
+
+export const createUnit = async (unitData: any, daysOfWeek: number[]) => {
+  const { data, error } = await supabase.from('units').insert(unitData).select().single()
+
+  if (error || !data) return { error }
+
+  if (daysOfWeek.length > 0) {
+    const schedules = daysOfWeek.map((d) => ({ unit_id: data.id, day_of_week: d }))
+    await supabase.from('schedules').insert(schedules)
+  }
+
+  return { data, error: null }
+}
+
+export const updateUnit = async (id: string, unitData: any, daysOfWeek: number[]) => {
+  const { data, error } = await supabase
     .from('units')
-    .update(data)
+    .update(unitData)
     .eq('id', id)
     .select()
     .single()
 
-  return { data: updated, error }
-}
+  if (error || !data) return { error }
 
-export const createUnit = async (data: TablesInsert<'units'>) => {
-  const { data: created, error } = await supabase.from('units').insert(data).select().single()
+  await supabase.from('schedules').delete().eq('unit_id', id)
 
-  return { data: created, error }
+  if (daysOfWeek.length > 0) {
+    const schedules = daysOfWeek.map((d) => ({ unit_id: data.id, day_of_week: d }))
+    await supabase.from('schedules').insert(schedules)
+  }
+
+  return { data, error: null }
 }

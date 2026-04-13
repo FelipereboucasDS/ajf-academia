@@ -18,6 +18,9 @@ export interface Unit {
   photo: string
   capacity: number
   price: number
+  status?: 'active' | 'inactive'
+  available_hours?: string[]
+  schedules?: UnitSchedule[]
 }
 
 export interface UnitSchedule {
