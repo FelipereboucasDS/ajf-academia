@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, Loader2, UserPlus } from 'lucide-react'
+import { Loader2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
+import logoUrl from '@/assets/image-4d0ff.png'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('aluno@ajf.com')
@@ -28,8 +29,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4 animate-fade-in">
       <Card className="w-full max-w-md border-border bg-card shadow-xl">
         <CardHeader className="space-y-4 text-center flex flex-col items-center">
-          <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <Shield className="w-10 h-10 text-primary-foreground" />
+          <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden shadow-lg shadow-primary/20">
+            <img src={logoUrl} alt="AJF Goleiros Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <CardTitle className="text-3xl font-black uppercase tracking-tight">

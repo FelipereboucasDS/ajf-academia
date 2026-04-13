@@ -11,7 +11,6 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import {
-  Shield,
   Home,
   Calendar as CalendarIcon,
   List,
@@ -35,6 +34,7 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
+import logoUrl from '@/assets/image-4d0ff.png'
 
 export default function Layout() {
   const { user, signOut, loading: authLoading } = useAuth()
@@ -64,8 +64,8 @@ export default function Layout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
-            <Shield className="w-8 h-8 text-primary-foreground" />
+          <div className="w-20 h-20 bg-black rounded-2xl flex items-center justify-center overflow-hidden shadow-lg shadow-primary/20">
+            <img src={logoUrl} alt="AJF Logo" className="w-full h-full object-contain" />
           </div>
           <p className="font-bold uppercase tracking-widest text-muted-foreground text-sm">
             Carregando...
@@ -110,8 +110,8 @@ export default function Layout() {
         <Sidebar variant="sidebar" className="border-r border-border bg-card">
           <SidebarHeader className="p-4 flex items-center justify-center border-b border-border">
             <Link to="/" className="flex flex-col items-center gap-2 group">
-              <div className="p-2 bg-primary rounded-xl group-hover:scale-105 transition-transform duration-300">
-                <Shield className="w-8 h-8 text-primary-foreground" />
+              <div className="w-16 h-16 bg-black rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-transform duration-300">
+                <img src={logoUrl} alt="AJF Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-display font-black tracking-widest text-xl">AJF</span>
             </Link>
