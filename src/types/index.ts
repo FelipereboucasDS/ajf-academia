@@ -35,4 +35,5 @@ export interface Booking {
   studentEmail?: string
   status: 'booked' | 'cancelled'
   attendance: 'pending' | 'present' | 'absent'
+  timeSlot?: string
 }

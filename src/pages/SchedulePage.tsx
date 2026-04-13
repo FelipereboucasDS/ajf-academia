@@ -3,14 +3,24 @@ import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import useMainStore from '@/stores/useMainStore'
 import { format, isBefore, startOfDay, getDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { MapPin, Users } from 'lucide-react'
+import { MapPin, Users, Clock } from 'lucide-react'
+import { createBooking } from '@/services/bookings'
+import { useToast } from '@/hooks/use-toast'
+
+const TIME_SLOTS = ['06:00 - 07:30', '07:30 - 09:00']
 
 const SchedulePage = () => {
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const { currentUser, units, schedules, bookings, bookTraining } = useMainStore()
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(TIME_SLOTS[0])
+  const [isBooking, setIsBooking] = useState(false)
+
+  const { currentUser, units, schedules, bookings } = useMainStore()
+  const { toast } = useToast()
 
   const today = startOfDay(new Date())
 
@@ -25,17 +35,57 @@ const SchedulePage = () => {
   const dateStr = date ? format(date, 'yyyy-MM-dd') : ''
   const isPast = date ? isBefore(date, today) : true
 
-  const currentBookingsCount = bookings.filter(
-    (b) => b.date === dateStr && b.unitId === selectedUnit?.id && b.status === 'booked',
-  ).length
-  const isFull = selectedUnit ? currentBookingsCount >= selectedUnit.capacity : false
   const alreadyBooked = bookings.some(
     (b) => b.date === dateStr && b.studentId === currentUser.id && b.status === 'booked',
   )
 
-  const handleBook = () => {
-    if (dateStr && selectedUnit) {
-      bookTraining(dateStr, selectedUnit.id)
+  const legacyBookingsCount = bookings.filter(
+    (b) =>
+      b.date === dateStr && b.unitId === selectedUnit?.id && b.status === 'booked' && !b.timeSlot,
+  ).length
+
+  const currentSlotBookingsCount = bookings.filter(
+    (b) =>
+      b.date === dateStr &&
+      b.unitId === selectedUnit?.id &&
+      b.status === 'booked' &&
+      b.timeSlot === selectedTimeSlot,
+  ).length
+
+  const totalCurrentSlotCount = currentSlotBookingsCount + legacyBookingsCount
+  const isFull = selectedUnit ? totalCurrentSlotCount >= selectedUnit.capacity : false
+
+  const handleBook = async () => {
+    if (dateStr && selectedUnit && selectedTimeSlot) {
+      setIsBooking(true)
+      const { error } = await createBooking(
+        dateStr,
+        selectedUnit.id,
+        currentUser.id,
+        selectedTimeSlot,
+        currentUser.name,
+        currentUser.email,
+      )
+
+      if (error) {
+        toast({
+          title: 'Erro no agendamento',
+          description: error.message?.includes('one_booking_per_day')
+            ? 'Você já possui um treino agendado para este dia. É permitida apenas uma aula por dia.'
+            : 'Ocorreu um erro ao agendar. Tente novamente.',
+          variant: 'destructive',
+        })
+        setIsBooking(false)
+        return
+      }
+
+      toast({
+        title: 'Treino agendado!',
+        description: `Seu treino para as ${selectedTimeSlot} foi confirmado com sucesso.`,
+      })
+
+      // Force page reload to ensure store state gets freshly synchronized with database
+      window.location.href = '/meus-treinos'
     }
   }
 
@@ -93,32 +143,80 @@ const SchedulePage = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> Horário do Treino
+                  </Label>
+                  <RadioGroup
+                    value={selectedTimeSlot}
+                    onValueChange={setSelectedTimeSlot}
+                    className="grid grid-cols-2 gap-4"
+                    disabled={alreadyBooked || isPast || isBooking}
+                  >
+                    {TIME_SLOTS.map((slot) => {
+                      const count =
+                        bookings.filter(
+                          (b) =>
+                            b.date === dateStr &&
+                            b.unitId === selectedUnit.id &&
+                            b.status === 'booked' &&
+                            b.timeSlot === slot,
+                        ).length + legacyBookingsCount
+                      const slotFull = count >= selectedUnit.capacity
+
+                      return (
+                        <div
+                          key={slot}
+                          className={`flex items-center space-x-2 border rounded-md p-3 transition-colors ${selectedTimeSlot === slot ? 'border-primary bg-primary/10' : 'border-border'} ${slotFull && selectedTimeSlot !== slot ? 'opacity-50' : ''}`}
+                        >
+                          <RadioGroupItem
+                            value={slot}
+                            id={slot}
+                            disabled={slotFull && !alreadyBooked}
+                          />
+                          <Label
+                            htmlFor={slot}
+                            className={`flex-1 cursor-pointer ${slotFull && !alreadyBooked ? 'text-muted-foreground' : 'font-medium'}`}
+                          >
+                            {slot}
+                            {slotFull && !alreadyBooked && (
+                              <span className="block text-xs text-destructive mt-1">Esgotado</span>
+                            )}
+                          </Label>
+                        </div>
+                      )
+                    })}
+                  </RadioGroup>
+                </div>
+
                 <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Users className="w-5 h-5" />
-                    <span className="font-medium">Vagas Restantes</span>
+                    <span className="font-medium">Vagas no Horário</span>
                   </div>
                   <span
                     className={`text-2xl font-black ${isFull ? 'text-destructive' : 'text-foreground'}`}
                   >
-                    {Math.max(0, selectedUnit.capacity - currentBookingsCount)} /{' '}
+                    {Math.max(0, selectedUnit.capacity - totalCurrentSlotCount)} /{' '}
                     {selectedUnit.capacity}
                   </span>
                 </div>
 
                 <Button
                   className={`w-full font-bold text-lg h-14 ${alreadyBooked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={isPast || isFull || alreadyBooked}
+                  disabled={isPast || isFull || alreadyBooked || isBooking}
                   onClick={handleBook}
                   variant={isFull && !alreadyBooked ? 'destructive' : 'default'}
                 >
-                  {isPast
-                    ? 'Data Indisponível'
-                    : alreadyBooked
-                      ? 'Treino Reservado'
-                      : isFull
-                        ? 'Turma Lotada'
-                        : 'Confirmar Reserva'}
+                  {isBooking
+                    ? 'Agendando...'
+                    : isPast
+                      ? 'Data Indisponível'
+                      : alreadyBooked
+                        ? 'Treino Reservado'
+                        : isFull
+                          ? 'Horário Lotado'
+                          : 'Confirmar Reserva'}
                 </Button>
               </CardContent>
             </Card>

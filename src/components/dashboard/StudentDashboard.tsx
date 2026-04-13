@@ -58,6 +58,7 @@ export function StudentDashboard() {
               <div className="flex items-center text-muted-foreground gap-2 text-lg">
                 <MapPin className="w-5 h-5 text-primary" />
                 {nextUnit.name}
+                {nextBooking.timeSlot && ` • ${nextBooking.timeSlot}`}
               </div>
               <Button asChild size="lg" className="w-full sm:w-auto mt-4 font-bold text-md">
                 <Link to="/meus-treinos">Ver Detalhes</Link>
