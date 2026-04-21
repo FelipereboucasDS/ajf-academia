@@ -11,7 +11,11 @@ interface MainStoreState {
   bookings: Booking[]
   loading: boolean
   initStore: (userId: string) => Promise<void>
-  bookTraining: (date: string, unitId: string) => Promise<void>
+  bookTraining: (
+    date: string,
+    unitId: string,
+    timeSlot?: string,
+  ) => Promise<{ success: boolean; error?: any }>
   cancelBooking: (bookingId: string) => Promise<void>
   markAttendance: (bookingId: string, status: 'present' | 'absent') => Promise<void>
   toggleFavoriteUnit: (unitId: string) => Promise<void>
@@ -62,6 +66,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             photo: u.photo,
             capacity: u.capacity,
             price: u.price,
+            status: u.status,
+            available_hours: u.available_hours,
           })),
         )
       }
@@ -85,6 +91,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             studentId: b.student_id,
             studentName: b.student_name,
             studentEmail: b.student_email,
+            timeSlot: b.time_slot,
             status: b.status,
             attendance: b.attendance,
           })),
@@ -98,14 +105,14 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const bookTraining = useCallback(
-    async (date: string, unitId: string) => {
-      if (!currentUser.id) return
+    async (date: string, unitId: string, timeSlot?: string) => {
+      if (!currentUser.id) return { success: false, error: 'User not found' }
       const exists = bookings.find(
         (b) => b.date === date && b.studentId === currentUser.id && b.status === 'booked',
       )
       if (exists) {
         toast.error('Você já possui um agendamento para este dia.')
-        return
+        return { success: false, error: 'Already booked' }
       }
 
       const { data, error } = await supabase
@@ -116,6 +123,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           student_id: currentUser.id,
           student_name: currentUser.name,
           student_email: currentUser.email,
+          time_slot: timeSlot,
           status: 'booked',
           attendance: 'pending',
         })
@@ -123,8 +131,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         .single()
 
       if (error) {
-        toast.error('Erro ao agendar.')
-        return
+        toast.error(
+          error.message?.includes('one_booking_per_day')
+            ? 'Você já possui um treino agendado para este dia.'
+            : 'Erro ao agendar.',
+        )
+        return { success: false, error }
       }
 
       setBookings((prev) => [
@@ -136,11 +148,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           studentId: data.student_id,
           studentName: data.student_name,
           studentEmail: data.student_email,
+          timeSlot: data.time_slot,
           status: data.status as any,
           attendance: data.attendance as any,
         },
       ])
       toast.success('Treino agendado com sucesso!')
+      return { success: true }
     },
     [currentUser, bookings],
   )

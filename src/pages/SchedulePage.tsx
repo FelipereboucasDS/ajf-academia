@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,44 +8,77 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import useMainStore from '@/stores/useMainStore'
 import { format, isBefore, startOfDay, getDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { MapPin, Users, Clock } from 'lucide-react'
-import { createBooking } from '@/services/bookings'
+import { MapPin, Users, Clock, DollarSign } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
 
 const SchedulePage = () => {
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('')
+  const navigate = useNavigate()
+
+  // Persist state in sessionStorage to avoid losing data on accidental refresh
+  const [date, setDate] = useState<Date | undefined>(() => {
+    const saved = sessionStorage.getItem('schedule_date')
+    return saved ? new Date(saved) : new Date()
+  })
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(() => {
+    return sessionStorage.getItem('schedule_time_slot') || ''
+  })
+
   const [isBooking, setIsBooking] = useState(false)
 
-  const { currentUser, units, schedules, bookings } = useMainStore()
+  const { currentUser, units, schedules, bookings, bookTraining } = useMainStore()
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (date) sessionStorage.setItem('schedule_date', date.toISOString())
+    else sessionStorage.removeItem('schedule_date')
+  }, [date])
+
+  useEffect(() => {
+    if (selectedTimeSlot) sessionStorage.setItem('schedule_time_slot', selectedTimeSlot)
+    else sessionStorage.removeItem('schedule_time_slot')
+  }, [selectedTimeSlot])
 
   const today = startOfDay(new Date())
 
   const selectedUnit = useMemo(() => {
     if (!date) return null
     const dayOfWeek = getDay(date)
-    const schedule = schedules.find((s) => s.dayOfWeek === dayOfWeek)
+    const activeUnits = units.filter((u: any) => u.status === 'active')
+    const schedule = schedules.find(
+      (s) => s.dayOfWeek === dayOfWeek && activeUnits.some((au) => au.id === s.unitId),
+    )
     if (!schedule) return null
-    return units.find((u) => u.id === schedule.unitId) || null
+    return activeUnits.find((u) => u.id === schedule.unitId) || null
   }, [date, schedules, units])
 
   const unitTimeSlots = useMemo(() => {
-    if (!selectedUnit?.available_hours) return []
-    const hours = selectedUnit.available_hours
-    if (Array.isArray(hours)) return hours
+    const hours = (selectedUnit as any)?.available_hours
+    if (!hours) return []
+    let parsedHours = hours
     if (typeof hours === 'string') {
       try {
-        return JSON.parse(hours)
+        parsedHours = JSON.parse(hours)
       } catch {
-        return hours.split(',').map((s: string) => s.trim())
+        parsedHours = hours.split(',').map((s: string) => s.trim())
       }
+    }
+
+    if (Array.isArray(parsedHours)) {
+      return parsedHours.map((h) => {
+        if (typeof h === 'string') return h
+        if (h && typeof h === 'object') {
+          if (h.start && h.end) return `${h.start} às ${h.end}`
+          if (h.startTime && h.endTime) return `${h.startTime} às ${h.endTime}`
+        }
+        return JSON.stringify(h)
+      })
     }
     return []
   }, [selectedUnit])
 
   // Set first slot as default when unit/date changes
-  useMemo(() => {
+  useEffect(() => {
     if (
       unitTimeSlots.length > 0 &&
       (!selectedTimeSlot || !unitTimeSlots.includes(selectedTimeSlot))
@@ -62,12 +95,12 @@ const SchedulePage = () => {
   )
 
   const legacyBookingsCount = bookings.filter(
-    (b) =>
+    (b: any) =>
       b.date === dateStr && b.unitId === selectedUnit?.id && b.status === 'booked' && !b.timeSlot,
   ).length
 
   const currentSlotBookingsCount = bookings.filter(
-    (b) =>
+    (b: any) =>
       b.date === dateStr &&
       b.unitId === selectedUnit?.id &&
       b.status === 'booked' &&
@@ -78,41 +111,32 @@ const SchedulePage = () => {
   const isFull = selectedUnit ? totalCurrentSlotCount >= selectedUnit.capacity : false
 
   const handleBook = async () => {
+    if (!selectedTimeSlot) {
+      toast({
+        title: 'Horário não selecionado',
+        description: 'Por favor, selecione um horário para agendar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (dateStr && selectedUnit && selectedTimeSlot) {
       setIsBooking(true)
-      const { error } = await createBooking(
-        dateStr,
-        selectedUnit.id,
-        currentUser.id,
-        selectedTimeSlot,
-        currentUser.name,
-        currentUser.email,
-      )
+      const res = await bookTraining(dateStr, selectedUnit.id, selectedTimeSlot)
 
-      if (error) {
-        toast({
-          title: 'Erro no agendamento',
-          description: error.message?.includes('one_booking_per_day')
-            ? 'Você já possui um treino agendado para este dia. É permitida apenas uma aula por dia.'
-            : 'Ocorreu um erro ao agendar. Tente novamente.',
-          variant: 'destructive',
-        })
+      if (!res?.success) {
         setIsBooking(false)
         return
       }
 
-      toast({
-        title: 'Treino agendado!',
-        description: `Seu treino para as ${selectedTimeSlot} foi confirmado com sucesso.`,
-      })
-
-      // Force page reload to ensure store state gets freshly synchronized with database
-      window.location.href = '/meus-treinos'
+      sessionStorage.removeItem('schedule_date')
+      sessionStorage.removeItem('schedule_time_slot')
+      navigate('/meus-treinos')
     }
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in-up">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-black uppercase tracking-tight">Agendar Treino</h1>
         <p className="text-muted-foreground">
@@ -144,18 +168,30 @@ const SchedulePage = () => {
             >
               <CardHeader>
                 <img
-                  src={selectedUnit.photo}
+                  src={
+                    selectedUnit.photo || 'https://img.usecurling.com/p/600/300?q=gym%20training'
+                  }
                   alt={selectedUnit.name}
                   className="w-full h-48 object-cover rounded-t-lg mb-4 opacity-80"
                 />
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="space-y-2">
                     <CardTitle className="text-2xl font-bold uppercase">
                       {selectedUnit.name}
                     </CardTitle>
-                    <CardDescription className="flex items-center gap-1 mt-2 text-md">
+                    <CardDescription className="flex items-center gap-1 text-md">
                       <MapPin className="w-4 h-4" /> {selectedUnit.address}
                     </CardDescription>
+                    {(selectedUnit as any).price != null && (
+                      <div className="flex items-center gap-1 text-primary font-bold">
+                        <DollarSign className="w-4 h-4" />
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        }).format((selectedUnit as any).price)}{' '}
+                        / aula
+                      </div>
+                    )}
                   </div>
                   {alreadyBooked && (
                     <Badge variant="default" className="bg-primary text-primary-foreground">
@@ -176,14 +212,14 @@ const SchedulePage = () => {
                     disabled={alreadyBooked || isPast || isBooking}
                   >
                     {unitTimeSlots.length === 0 && (
-                      <p className="text-sm text-muted-foreground col-span-2">
+                      <p className="text-sm text-muted-foreground col-span-2 p-2 bg-muted/50 rounded-md">
                         Nenhum horário cadastrado para esta unidade.
                       </p>
                     )}
                     {unitTimeSlots.map((slot: string) => {
                       const count =
                         bookings.filter(
-                          (b) =>
+                          (b: any) =>
                             b.date === dateStr &&
                             b.unitId === selectedUnit.id &&
                             b.status === 'booked' &&
@@ -231,7 +267,7 @@ const SchedulePage = () => {
 
                 <Button
                   className={`w-full font-bold text-lg h-14 ${alreadyBooked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={isPast || isFull || alreadyBooked || isBooking}
+                  disabled={isPast || isFull || alreadyBooked || isBooking || !selectedTimeSlot}
                   onClick={handleBook}
                   variant={isFull && !alreadyBooked ? 'destructive' : 'default'}
                 >
@@ -243,14 +279,16 @@ const SchedulePage = () => {
                         ? 'Treino Reservado'
                         : isFull
                           ? 'Horário Lotado'
-                          : 'Confirmar Reserva'}
+                          : !selectedTimeSlot
+                            ? 'Selecione um Horário'
+                            : 'Confirmar Reserva'}
                 </Button>
               </CardContent>
             </Card>
           ) : date ? (
             <Card className="border-border bg-card border-dashed flex items-center justify-center h-full min-h-[300px]">
               <CardContent className="text-center text-muted-foreground">
-                Não há treinos programados para este dia da semana.
+                Não há treinos ativos programados para este dia da semana.
               </CardContent>
             </Card>
           ) : null}
