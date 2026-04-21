@@ -12,38 +12,39 @@ import UnitsPage from './pages/UnitsPage'
 import StudentsPage from './pages/StudentsPage'
 import FinancePage from './pages/FinancePage'
 import ProfilePage from './pages/ProfilePage'
+import SettingsPage from './pages/SettingsPage'
 import { StoreProvider } from './stores/useMainStore'
 import { AuthProvider } from './hooks/use-auth'
+import { ThemeProvider } from './components/ThemeProvider'
 
 const App = () => (
-  <AuthProvider>
-    <StoreProvider>
-      <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner theme="dark" position="top-right" />
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/cadastro" element={<div />} />
-              <Route path="/agendar" element={<SchedulePage />} />
-              <Route path="/meus-treinos" element={<MyTrainingsPage />} />
-              <Route path="/presenca" element={<AttendancePage />} />
-              <Route path="/unidades" element={<UnitsPage />} />
-              <Route path="/alunos" element={<StudentsPage />} />
-              <Route path="/financeiro" element={<FinancePage />} />
-              <Route
-                path="/configuracoes"
-                element={<div className="p-8 text-center text-muted-foreground">Em construção</div>}
-              />
-              <Route path="/perfil" element={<ProfilePage />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </TooltipProvider>
-      </BrowserRouter>
-    </StoreProvider>
-  </AuthProvider>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <AuthProvider>
+      <StoreProvider>
+        <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner theme="dark" position="top-right" />
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/cadastro" element={<div />} />
+                <Route path="/agendar" element={<SchedulePage />} />
+                <Route path="/meus-treinos" element={<MyTrainingsPage />} />
+                <Route path="/presenca" element={<AttendancePage />} />
+                <Route path="/unidades" element={<UnitsPage />} />
+                <Route path="/alunos" element={<StudentsPage />} />
+                <Route path="/financeiro" element={<FinancePage />} />
+                <Route path="/configuracoes" element={<SettingsPage />} />
+                <Route path="/perfil" element={<ProfilePage />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TooltipProvider>
+        </BrowserRouter>
+      </StoreProvider>
+    </AuthProvider>
+  </ThemeProvider>
 )
 
 export default App

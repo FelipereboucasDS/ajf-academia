@@ -11,6 +11,16 @@ import { ptBR } from 'date-fns/locale'
 import { MapPin, Users, Clock, DollarSign } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
+import { differenceInCalendarDays } from 'date-fns'
+import { useSettings } from '@/hooks/use-settings'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 const SchedulePage = () => {
   const navigate = useNavigate()
@@ -25,8 +35,11 @@ const SchedulePage = () => {
   })
 
   const [isBooking, setIsBooking] = useState(false)
+  const [bookingErrorModalOpen, setBookingErrorModalOpen] = useState(false)
+  const [bookingSuccessModalOpen, setBookingSuccessModalOpen] = useState(false)
 
   const { currentUser, units, schedules, bookings, bookTraining } = useMainStore()
+  const { settings } = useSettings()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -121,6 +134,21 @@ const SchedulePage = () => {
     }
 
     if (dateStr && selectedUnit && selectedTimeSlot) {
+      if (settings && date) {
+        const isNextDay = differenceInCalendarDays(date, new Date()) === 1
+        if (isNextDay) {
+          const now = new Date()
+          const currentTotalMinutes = now.getHours() * 60 + now.getMinutes()
+          const [cutoffHour, cutoffMinute] = settings.booking_cutoff_time.split(':').map(Number)
+          const cutoffTotalMinutes = cutoffHour * 60 + cutoffMinute
+
+          if (currentTotalMinutes >= cutoffTotalMinutes) {
+            setBookingErrorModalOpen(true)
+            return
+          }
+        }
+      }
+
       setIsBooking(true)
       const res = await bookTraining(dateStr, selectedUnit.id, selectedTimeSlot)
 
@@ -131,7 +159,8 @@ const SchedulePage = () => {
 
       sessionStorage.removeItem('schedule_date')
       sessionStorage.removeItem('schedule_time_slot')
-      navigate('/meus-treinos')
+      setBookingSuccessModalOpen(true)
+      setIsBooking(false)
     }
   }
 
@@ -294,6 +323,63 @@ const SchedulePage = () => {
           ) : null}
         </div>
       </div>
+
+      <Dialog open={bookingErrorModalOpen} onOpenChange={setBookingErrorModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aviso</DialogTitle>
+            <DialogDescription className="text-base text-foreground mt-2">
+              Infelizmente não é mais possível realizar agendamentos para amanhã, avalie outros dias
+              disponíveis.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setBookingErrorModalOpen(false)}>Entendi</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bookingSuccessModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBookingSuccessModalOpen(false)
+            navigate('/meus-treinos')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sucesso!</DialogTitle>
+            <DialogDescription className="text-base text-foreground mt-2 space-y-4">
+              <span className="font-bold text-lg block text-foreground">
+                Treino confirmado, paredão 🧤⚽🙏🚀
+              </span>
+              <div className="space-y-1 text-muted-foreground">
+                <span className="font-semibold text-foreground">Instruções:</span>
+                <ol className="list-decimal pl-4 space-y-1">
+                  <li>Levar sua própria garrafa de água.</li>
+                  <li>
+                    Limite por turma de até 20 goleiros, sendo 5 com cada professor alternando os
+                    trabalhos.
+                  </li>
+                  <li>Que Deus abençoe grandemente nosso treino.</li>
+                </ol>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setBookingSuccessModalOpen(false)
+                navigate('/meus-treinos')
+              }}
+            >
+              Concluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

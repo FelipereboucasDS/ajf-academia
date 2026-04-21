@@ -2,37 +2,87 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import useMainStore from '@/stores/useMainStore'
-import { QrCode, Copy, DollarSign } from 'lucide-react'
+import { useSettings } from '@/hooks/use-settings'
+import { QrCode, Copy, DollarSign, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useMemo } from 'react'
 
 const FinancePage = () => {
   const { currentUser, bookings, units } = useMainStore()
+  const { settings, loading } = useSettings()
 
-  // Simplified calculation for demo: past month total
-  const myBookings = bookings.filter(
-    (b) => b.studentId === currentUser.id && b.status === 'booked' && b.attendance !== 'pending',
-  )
+  const myBookings = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return bookings.filter((b: any) => b.status === 'booked' && b.attendance !== 'pending')
+    }
+    return bookings.filter(
+      (b: any) =>
+        b.studentId === currentUser.id && b.status === 'booked' && b.attendance !== 'pending',
+    )
+  }, [bookings, currentUser])
 
-  const totalDue = myBookings.reduce((acc, b) => {
-    const unit = units.find((u) => u.id === b.unitId)
+  const totalDue = myBookings.reduce((acc: number, b: any) => {
+    const unit = units.find((u: any) => u.id === b.unitId)
     return acc + (unit?.price || 0)
   }, 0)
 
   const handleCopyPix = () => {
-    navigator.clipboard.writeText(
-      '00020126360014br.gov.bcb.pix0114+55119999999995204000053039865802BR5922AJF ACADEMIA GOLEIROS6009SAO PAULO62070503***6304FC3C',
-    )
+    if (!settings?.pix_key) {
+      toast.error('Chave PIX não configurada pelo administrador.')
+      return
+    }
+    navigator.clipboard.writeText(settings.pix_key)
     toast.success('Chave PIX copiada!')
   }
 
+  if (loading)
+    return (
+      <div className="flex justify-center p-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+
+  if (currentUser.role === 'admin') {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in-up">
+        <div>
+          <h1 className="text-3xl font-black uppercase tracking-tight">Financeiro Geral</h1>
+          <p className="text-muted-foreground">
+            Previsão de faturamento baseada nos agendamentos confirmados.
+          </p>
+        </div>
+
+        <Card className="border-border bg-card overflow-hidden shadow-sm">
+          <CardHeader className="bg-accent/30 border-b border-border pb-8">
+            <CardTitle className="text-center text-muted-foreground uppercase text-sm tracking-widest mb-2">
+              Faturamento Previsto
+            </CardTitle>
+            <div className="text-5xl font-black text-center text-success glow-green drop-shadow-sm">
+              R$ {totalDue.toFixed(2)}
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 text-center text-muted-foreground text-sm">
+            Faturamento calculado considerando a regra de fechamento:{' '}
+            <span className="font-bold text-foreground">
+              {settings?.billing_cutoff_type === 'last_business_day'
+                ? 'Último dia útil do mês'
+                : `Dia ${settings?.billing_cutoff_day} do mês`}
+            </span>
+            .
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in-up">
       <div>
         <h1 className="text-3xl font-black uppercase tracking-tight">Financeiro</h1>
         <p className="text-muted-foreground">Fechamento mensal e pagamentos.</p>
       </div>
 
-      <Card className="border-border bg-card overflow-hidden">
+      <Card className="border-border bg-card overflow-hidden shadow-sm">
         <CardHeader className="bg-accent/30 border-b border-border pb-8">
           <CardTitle className="text-center text-muted-foreground uppercase text-sm tracking-widest mb-2">
             Fatura Atual
@@ -47,14 +97,27 @@ const FinancePage = () => {
               Resumo de Aulas
             </h3>
             {myBookings.length > 0 ? (
-              myBookings.map((b, i) => {
-                const unit = units.find((u) => u.id === b.unitId)
+              myBookings.map((b: any, i: number) => {
+                const unit = units.find((u: any) => u.id === b.unitId)
                 return (
-                  <div key={i} className="flex justify-between items-center text-sm">
-                    <span>
-                      {new Date(b.date).toLocaleDateString('pt-BR')} - {unit?.name}
+                  <div
+                    key={i}
+                    className="flex justify-between items-center text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0"
+                  >
+                    <span className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                      <span className="text-muted-foreground font-mono">
+                        {new Date(b.date).toLocaleDateString('pt-BR')}
+                      </span>
+                      <span>
+                        - {unit?.name}{' '}
+                        <span className="text-muted-foreground">
+                          ({b.timeSlot || 'Indefinido'})
+                        </span>
+                      </span>
                     </span>
-                    <span className="font-medium">R$ {unit?.price.toFixed(2)}</span>
+                    <span className="font-medium text-success">
+                      R$ {unit?.price?.toFixed(2) || '0.00'}
+                    </span>
                   </div>
                 )
               })
@@ -71,10 +134,11 @@ const FinancePage = () => {
             </h3>
             <div className="flex gap-2">
               <div className="flex-1 bg-background border border-border rounded-md p-3 font-mono text-xs text-muted-foreground truncate flex items-center">
-                00020126360014br.gov.bcb.pix...
+                {settings?.pix_key || 'Chave PIX não configurada'}
               </div>
               <Button
                 onClick={handleCopyPix}
+                disabled={!settings?.pix_key}
                 className="shrink-0 bg-primary text-primary-foreground font-bold"
               >
                 <Copy className="w-4 h-4 mr-2" /> Copiar
@@ -85,13 +149,13 @@ const FinancePage = () => {
         <CardFooter className="bg-accent/20 border-t border-border p-6 flex flex-col sm:flex-row gap-4">
           <Button
             variant="outline"
-            className="w-full flex items-center justify-center gap-2 border-border"
+            className="w-full flex items-center justify-center gap-2 border-border hover:bg-accent transition-colors"
           >
             <DollarSign className="w-4 h-4" /> Pagar com Google Pay
           </Button>
           <Button
             variant="outline"
-            className="w-full flex items-center justify-center gap-2 border-border"
+            className="w-full flex items-center justify-center gap-2 border-border hover:bg-accent transition-colors"
           >
             <DollarSign className="w-4 h-4" /> Pagar com Apple Pay
           </Button>

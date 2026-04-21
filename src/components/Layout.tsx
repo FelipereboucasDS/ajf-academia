@@ -35,6 +35,7 @@ import { useAuth } from '@/hooks/use-auth'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import logoUrl from '@/assets/image-4d0ff.png'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Layout() {
   const { user, signOut, loading: authLoading } = useAuth()
@@ -155,6 +156,7 @@ export default function Layout() {
               </h1>
             </div>
             <div className="flex items-center gap-4">
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
