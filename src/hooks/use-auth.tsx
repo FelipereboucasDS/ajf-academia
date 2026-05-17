@@ -55,11 +55,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (!error) {
+      window.location.href = '/'
+    }
     return { error }
   }
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
+    if (!error) {
+      window.location.href = '/'
+    }
     return { error }
   }
 

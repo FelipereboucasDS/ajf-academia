@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Calendar as CalendarIcon, MapPin, TrendingUp, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import useMainStore from '@/stores/useMainStore'
-import { format, isAfter, startOfDay } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
@@ -11,13 +11,16 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 export function StudentDashboard() {
   const { currentUser, bookings, units } = useMainStore()
   const today = startOfDay(new Date())
+  const todayStr = format(today, 'yyyy-MM-dd')
 
   const upcomingBookings = bookings
-    .filter(
-      (b) =>
-        b.studentId === currentUser.id && b.status === 'booked' && isAfter(new Date(b.date), today),
-    )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter((b) => b.studentId === currentUser.id && b.status === 'booked' && b.date >= todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
 
   const nextBooking = upcomingBookings[0]
   const nextUnit = nextBooking ? units.find((u) => u.id === nextBooking.unitId) : null
@@ -53,7 +56,7 @@ export function StudentDashboard() {
           {nextBooking && nextUnit ? (
             <div className="space-y-4">
               <div className="text-4xl font-black text-foreground uppercase tracking-tight">
-                {format(new Date(nextBooking.date), "dd 'de' MMMM", { locale: ptBR })}
+                {format(parseLocalDate(nextBooking.date), "dd 'de' MMMM", { locale: ptBR })}
               </div>
               <div className="flex items-center text-muted-foreground gap-2 text-lg">
                 <MapPin className="w-5 h-5 text-primary" />
