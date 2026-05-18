@@ -168,8 +168,9 @@ const FinancePage = () => {
     )
   }
 
-  const formatMonth = (yyyyMm: string) => {
-    const [y, m] = yyyMm.split('-')
+  const formatMonth = (monthStr: string) => {
+    if (!monthStr) return ''
+    const [y, m] = monthStr.split('-')
     const d = new Date(parseInt(y), parseInt(m) - 1, 1)
     return format(d, 'MMMM yyyy', { locale: ptBR })
   }
