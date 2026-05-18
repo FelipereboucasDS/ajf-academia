@@ -175,6 +175,12 @@ const FinancePage = () => {
     return format(d, 'MMMM yyyy', { locale: ptBR })
   }
 
+  const formatDateSafe = (dateStr: string) => {
+    if (!dateStr) return ''
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('pt-BR')
+  }
+
   const translateStatus = (status: string, amount?: number) => {
     if (amount === 0) return 'Isento'
     switch (status) {
@@ -395,7 +401,7 @@ const FinancePage = () => {
                   >
                     <span className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
                       <span className="text-muted-foreground font-mono">
-                        {new Date(b.date).toLocaleDateString('pt-BR')}
+                        {formatDateSafe(b.date)}
                       </span>
                       <span>
                         - {unit?.name}{' '}
