@@ -175,7 +175,8 @@ const FinancePage = () => {
     return format(d, 'MMMM yyyy', { locale: ptBR })
   }
 
-  const translateStatus = (status: string) => {
+  const translateStatus = (status: string, amount?: number) => {
+    if (amount === 0) return 'Isento'
     switch (status) {
       case 'paid':
         return 'Pago'
@@ -186,7 +187,8 @@ const FinancePage = () => {
     }
   }
 
-  const statusColor = (status: string) => {
+  const statusColor = (status: string, amount?: number) => {
+    if (amount === 0) return 'bg-muted/20 text-muted-foreground'
     switch (status) {
       case 'paid':
         return 'bg-success/20 text-success'
@@ -259,9 +261,9 @@ const FinancePage = () => {
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={`border-transparent ${statusColor(status)}`}
+                            className={`border-transparent ${statusColor(status, student.total)}`}
                           >
-                            {translateStatus(status)}
+                            {translateStatus(status, student.total)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -276,13 +278,19 @@ const FinancePage = () => {
                             </a>
                           ) : (
                             <span className="text-muted-foreground text-sm flex items-center">
-                              <XCircle className="w-3 h-3 mr-1" /> Não enviado
+                              {student.total === 0 ? (
+                                '-'
+                              ) : (
+                                <>
+                                  <XCircle className="w-3 h-3 mr-1" /> Não enviado
+                                </>
+                              )}
                             </span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {status !== 'paid' && (
+                            {student.total > 0 && status !== 'paid' && (
                               <Button
                                 size="sm"
                                 variant="default"
@@ -294,7 +302,7 @@ const FinancePage = () => {
                                 <Check className="w-3 h-3 mr-1" /> Aprovar
                               </Button>
                             )}
-                            {status === 'paid' && (
+                            {student.total > 0 && status === 'paid' && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -360,9 +368,9 @@ const FinancePage = () => {
           <div className="absolute top-4 right-4">
             <Badge
               variant="outline"
-              className={`px-3 py-1 text-sm font-semibold border-transparent ${statusColor(status)}`}
+              className={`px-3 py-1 text-sm font-semibold border-transparent ${statusColor(status, studentTotalDue)}`}
             >
-              {translateStatus(status)}
+              {translateStatus(status, studentTotalDue)}
             </Badge>
           </div>
           <CardTitle className="text-center text-muted-foreground uppercase text-sm tracking-widest mb-2 mt-4">
